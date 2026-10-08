@@ -1,8 +1,9 @@
 {
   "name": "recent-switcher",
   "displayName": "Recent Switcher",
+  "icon": "media/icon.png",
   "description": "Quickly access and switch between recently opened VS Code projects.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "wangxiaocuo",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/wangxiaocuo/vscode-recent-switcher.git" },
@@ -14,7 +15,7 @@
   "capabilities": { "untrustedWorkspaces": { "supported": true }, "virtualWorkspaces": { "supported": false } },
   "contributes": {
     "viewsContainers": { "activitybar": [{ "id": "recentSwitcher", "title": "Recent Switcher", "icon": "media/recent-switcher.svg" }] },
-    "views": { "recentSwitcher": [{ "id": "recentSwitcher.projects", "name": "Recent Projects" }] },
+    "views": { "recentSwitcher": [{ "type": "webview", "id": "recentSwitcher.projects", "name": "Recent Projects" }] },
     "commands": [
       { "command": "recentSwitcher.refresh", "title": "Refresh", "category": "Recent Switcher", "icon": "$(refresh)" },
       { "command": "recentSwitcher.open", "title": "Open in New Window", "category": "Recent Switcher" },

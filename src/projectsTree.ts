@@ -3,16 +3,19 @@ import { canOpenDirectly, projectName, projectPath, type RecentProject } from '.
 import { loadRecentProjects } from './recentProjects';
 
 export class ProjectItem extends vscode.TreeItem {
+  readonly current: boolean;
   constructor(readonly project: RecentProject) {
     super(projectName(project), vscode.TreeItemCollapsibleState.None);
     const currentUri = vscode.workspace.workspaceFile ?? vscode.workspace.workspaceFolders?.[0]?.uri;
-    const current = currentUri?.toString() === project.uri.toString();
+    const current = currentUri?.toString() === project.uri.toString()
+      && (!project.remoteAuthority || project.remoteAuthority === currentUri?.authority);
+    this.current = current;
     const direct = canOpenDirectly(project);
     this.description = `${projectPath(project, true)}${current ? ' • Current' : ''}${direct ? '' : ' • Open Recent'}`;
     this.tooltip = `${project.kind === 'folder' ? 'Folder' : 'Workspace'}${current ? ' (current)' : ''}\n${projectPath(project)}${project.remoteAuthority ? `\nRemote: ${project.remoteAuthority}` : ''}${direct ? '' : '\nOpen through VS Code Open Recent'}`;
     this.iconPath = new vscode.ThemeIcon(project.kind === 'folder' ? 'folder' : 'root-folder');
     this.contextValue = direct ? 'recentProject' : 'recentProjectFallback';
-    this.command = { command: 'recentSwitcher.open', title: 'Open in New Window', arguments: [this] };
+    this.command = { command: 'recentSwitcher.open', title: 'Open Project', arguments: [this] };
   }
 }
 
@@ -46,7 +49,7 @@ export class ProjectsTree implements vscode.TreeDataProvider<vscode.TreeItem>, v
     let items: vscode.TreeItem[];
     try {
       const projects = await this.load();
-      items = projects.length ? projects.map(project => new ProjectItem(project))
+      items = projects.length ? projects.map(project => new ProjectItem(project)).sort((a, b) => Number(b.current) - Number(a.current))
         : [this.status('No recent projects yet', 'Open a folder or workspace in VS Code to get started.', 'info')];
     } catch {
       items = [this.status('Recent history unavailable — Open Recent',

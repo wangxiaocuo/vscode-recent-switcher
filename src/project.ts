@@ -30,3 +30,12 @@ export function canOpenDirectly(project: RecentProject): boolean {
   return project.uri.scheme === 'file' && !project.remoteAuthority
     && (project.kind === 'folder' || /\.code-workspace$/i.test(project.uri.path));
 }
+
+export function projectInitials(name: string): string {
+  const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const first = words[0];
+  if (!first) return '?';
+  const last = words.at(-1) ?? first;
+  return (words.length > 1 ? (Array.from(first)[0] ?? '') + (Array.from(last)[0] ?? '')
+    : Array.from(first).slice(0, 2).join('')).toLocaleUpperCase();
+}

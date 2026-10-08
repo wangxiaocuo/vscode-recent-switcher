@@ -1,0 +1,17 @@
+:root { color-scheme: light dark; }
+body { margin: 0; padding: 6px 8px; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }
+* { box-sizing: border-box; }
+.project { position: relative; margin: 2px 0; border-radius: 5px; }
+.open { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 62px; padding: 10px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.project:hover, .project:focus-within { background: var(--vscode-list-hoverBackground); }
+button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.avatar { display: flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border-radius: 7px; background: color-mix(in srgb, var(--vscode-foreground) 16%, var(--vscode-editor-background)); color: var(--vscode-foreground); font-size: 12px; font-weight: 600; letter-spacing: .3px; border: 1px solid var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-editor-background))); }
+.project:not(.current):hover .avatar, .project:not(.current):focus-within .avatar { background: color-mix(in srgb, var(--vscode-foreground) 24%, var(--vscode-editor-background)); border-color: var(--vscode-contrastActiveBorder, var(--vscode-foreground)); }
+.current .avatar { background: var(--vscode-textLink-foreground); color: var(--vscode-editor-background); border-color: var(--vscode-contrastBorder, var(--vscode-textLink-foreground)); }
+.copy { flex: 1; min-width: 0; }
+.name, .path { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.name { line-height: 20px; font-weight: 500; }
+.path { margin-top: 2px; font-size: 11px; line-height: 16px; color: var(--vscode-descriptionForeground); }
+.check { flex: 0 0 16px; width: 16px; height: 16px; color: var(--vscode-textLink-foreground); }
+.status { padding: 12px 8px; line-height: 1.6; color: var(--vscode-descriptionForeground); }
+.status button { display: block; margin-top: 10px; border: 0; padding: 6px 10px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); cursor: pointer; font: inherit; }

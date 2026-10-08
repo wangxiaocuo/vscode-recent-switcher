@@ -122,3 +122,62 @@ test('nonempty trees refresh without serializing circular command arguments', as
   await tree.refresh(true);
   tree.dispose();
 });
+
+test('current project sorts first without changing other history order', async () => {
+  const projects = ['newest', 'current', 'older'].map(name => ({ kind: 'folder', uri: Uri.from(uri('/a/' + name)) }));
+  vscode.workspace.workspaceFolders = [{ uri: projects[1].uri }];
+  const tree = new ProjectsTree(async () => projects);
+  try {
+    const items = await tree.getChildren();
+    assert.equal(items.map(item => item.label).join(','), 'current,newest,older');
+    assert.equal(items[0].current, true);
+    vscode.workspace.workspaceFolders = [{ uri: projects[2].uri }];
+    await tree.refresh(true);
+    assert.equal((await tree.getChildren())[0].label, 'older');
+  } finally { tree.dispose(); vscode.workspace.workspaceFolders = undefined; }
+});
+
+test('saved workspace identity takes precedence over its first folder', async () => {
+  vscode.workspace.workspaceFile = Uri.from(uri('/a/team.code-workspace'));
+  vscode.workspace.workspaceFolders = [{ uri: Uri.from(uri('/a/folder')) }];
+  const tree = new ProjectsTree(async () => [
+    { kind: 'folder', uri: vscode.workspace.workspaceFolders[0].uri },
+    { kind: 'workspace', uri: vscode.workspace.workspaceFile },
+  ]);
+  try {
+    const items = await tree.getChildren();
+    assert.equal(items[0].label, 'team');
+    assert.equal(items[1].current, false);
+  } finally { tree.dispose(); vscode.workspace.workspaceFile = undefined; vscode.workspace.workspaceFolders = undefined; }
+});
+
+test('initials handle separators, camel case, Unicode and empty names', () => {
+  const { projectInitials } = load('src/project.ts');
+  for (const [name, expected] of [['web-ruoyi-plus', 'WP'], ['server_ruoyi_plus', 'SP'], ['admin-web', 'AW'], ['myProject', 'MP'], ['中文项目', '中文'], ['x', 'X'], ['', '?']]) {
+    assert.equal(projectInitials(name), expected);
+  }
+});
+
+test('default opening reuses empty windows but preserves existing folders and empty saved workspaces', async () => {
+  const project = { kind: 'folder', uri: Uri.from(uri('/a/target')) };
+  const states = [
+    { folders: undefined, file: undefined, newWindow: false },
+    { folders: [], file: undefined, newWindow: false },
+    { folders: [{ uri: Uri.from(uri('/a/existing')) }], file: undefined, newWindow: true },
+    { folders: [], file: Uri.from(uri('/a/empty.code-workspace')), newWindow: true },
+    { folders: [], file: Uri.from(uri('/a/untitled', 'untitled')), newWindow: true },
+  ];
+  try {
+    for (const state of states) {
+      vscode.workspace.workspaceFolders = state.folders;
+      vscode.workspace.workspaceFile = state.file;
+      calls.length = 0;
+      await openProject(project);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0][0], 'vscode.openFolder');
+      assert.equal(calls[0][2].forceNewWindow, state.newWindow);
+      assert.equal(calls[0][2].forceReuseWindow, !state.newWindow);
+      assert.equal(calls[0][2].forceLocalWindow, true);
+    }
+  } finally { vscode.workspace.workspaceFolders = undefined; vscode.workspace.workspaceFile = undefined; }
+});

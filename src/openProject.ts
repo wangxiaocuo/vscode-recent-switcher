@@ -9,7 +9,7 @@ export async function openRecent(): Promise<void> {
   }
 }
 
-export async function openProject(project: RecentProject, newWindow: boolean): Promise<void> {
+export async function openProject(project: RecentProject, newWindow = Boolean(vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.length)): Promise<void> {
   if (!canOpenDirectly(project)) {
     const action = await vscode.window.showInformationMessage(
       'This project needs VS Code’s native Open Recent to preserve its remote or workspace context. Select it there to continue.',
