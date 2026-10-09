@@ -4,6 +4,28 @@
 
 Recent Switcher 在侧边栏列出最近打开的 VS Code 文件夹和工作区，点击即可切换。安装前的历史记录也会显示，无需配置、登录、扫描目录或另存项目列表。
 
+## 布局示例
+
+```text
+┌──────────────────────────────────────────────┐
+│ RECENT PROJECTS                  History  ↻  │
+├──────────────────────────────────────────────┤
+│ [RS]  recent-switcher                     ✓  │
+│       ~/projects/recent-switcher             │
+│                                              │
+│ [WA]  web-app                             ●  │
+│       ~/projects/web-app                     │
+│                                              │
+│ [DS]  design-system                          │
+│       ~/projects/design-system               │
+│                                              │
+│ [D]   docs                                   │
+│       ~/projects/docs.code-workspace         │
+└──────────────────────────────────────────────┘
+```
+
+以上为使用虚构项目的布局示意。`✓` 表示当前项目，`●` 表示其他窗口已打开的项目，无标记表示未检测到打开。项目名称和路径分两行展示，实际颜色和图标随 VS Code 主题变化。
+
 ## 核心功能
 
 - 在 Activity Bar（活动栏）中提供 Recent Switcher 入口，侧边栏视图为 Recent Projects。

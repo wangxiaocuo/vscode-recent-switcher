@@ -4,6 +4,28 @@ English | [简体中文](README.zh-CN.md)
 
 Recent Switcher lists your recently opened VS Code folders and workspaces in the sidebar, including projects opened before you installed it. You can switch projects without configuring the extension, signing in, scanning folders or saving a separate project list.
 
+## Layout example
+
+```text
+┌──────────────────────────────────────────────┐
+│ RECENT PROJECTS                  History  ↻  │
+├──────────────────────────────────────────────┤
+│ [RS]  recent-switcher                     ✓  │
+│       ~/projects/recent-switcher             │
+│                                              │
+│ [WA]  web-app                             ●  │
+│       ~/projects/web-app                     │
+│                                              │
+│ [DS]  design-system                          │
+│       ~/projects/design-system               │
+│                                              │
+│ [D]   docs                                   │
+│       ~/projects/docs.code-workspace         │
+└──────────────────────────────────────────────┘
+```
+
+Illustrative layout with sample projects. `✓` marks the current project; `●` marks a project detected in another window. Unmarked projects are not detected as open. Names and paths occupy separate lines; actual colors and icons follow your VS Code theme.
+
 ## Features
 
 - A Recent Switcher Activity Bar entry with a Recent Projects list.
