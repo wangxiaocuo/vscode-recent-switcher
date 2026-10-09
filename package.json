@@ -3,7 +3,7 @@
   "displayName": "Recent Switcher",
   "icon": "media/icon.png",
   "description": "Quickly access and switch between recently opened VS Code projects.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "wangxiaocuo",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/wangxiaocuo/vscode-recent-switcher.git" },
