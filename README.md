@@ -10,7 +10,7 @@ Recent Switcher lists your recently opened VS Code folders and workspaces in the
 - The current project appears first with a theme-colored checkmark, followed by projects detected in other windows, then projects not detected as open. Each group keeps native recent-history order. Individual files are excluded.
 - Two-line project names and paths, initial avatars, and full-path tooltips. Current-project avatars use a solid accent; other open projects use an accent outline and dot; remaining projects use neutral colors. Local home paths are abbreviated to `~`.
 - Single-click a local folder or saved `.code-workspace` to open it in the current window when empty, or a new window when a folder or workspace is already open.
-- Refresh on first display, when the view becomes visible, and when its visible window regains focus. A toolbar refresh button is also available.
+- Refresh on first display, when the view becomes visible, and when its visible window regains focus. After an open attempt, the list reloads native history and briefly rechecks for delayed changes, including removal of missing paths. While visible, the panel also checks history every five seconds. A toolbar refresh button is available.
 - Opening or closing a window updates project status through file notifications, with a periodic heartbeat as a fallback. A new window appears as open once its extension instance registers.
 - Distinct empty and failure states, with a native Open Recent fallback.
 
@@ -107,7 +107,7 @@ Source references checked during development:
 - Desktop extension only; VS Code for the Web and virtual workspaces are not supported.
 - Remote SSH, WSL and Dev Containers records are displayed but opened through native Open Recent. The public folder command cannot forward a separate `remoteAuthority` for a local workspace file. Remote connections have not been tested end to end.
 - Untitled or otherwise unsupported workspace URIs also use the native fallback.
-- No public event exposes native recent-history changes. History is refreshed on view/focus changes, manual refresh, or a detected change in the set of open projects. Other edits to native history may not appear until the next refresh.
+- No public event exposes native recent-history changes. History is refreshed on view/focus changes, manual refresh, or a detected change in the set of open projects. Open attempts also trigger a refresh and short follow-up checks. While the panel is visible, a five-second check catches other native-history changes.
 - Names and paths use separate lines. Narrow sidebars truncate each line; tooltips show full paths.
 - Renamed/deleted projects are not proactively scanned or removed. VS Code handles their opening errors.
 - Current-project marking uses exact URI equality. Differently cased paths or symlink aliases may not receive the marker.

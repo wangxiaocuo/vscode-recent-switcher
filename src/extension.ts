@@ -26,15 +26,18 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   void registry.watch(keys => provider.setOpenProjects(keys)).catch(() => undefined);
   void sync();
-  const timer = setInterval(() => { void sync(); }, 5000);
+  const timer = setInterval(() => {
+    void sync();
+    if (provider.visible) void provider.refresh();
+  }, 5000);
   context.subscriptions.push({ dispose: () => clearInterval(timer) });
   const view = vscode.window.registerWebviewViewProvider('recentSwitcher.projects', provider);
   context.subscriptions.push(
     provider, view,
     vscode.commands.registerCommand('recentSwitcher.refresh', async () => { await sync(); await provider.refresh(true); }),
-    vscode.commands.registerCommand('recentSwitcher.openRecent', openRecent),
-    vscode.commands.registerCommand('recentSwitcher.open', (item: unknown) => item instanceof ProjectItem ? openProject(item.project) : undefined),
-    vscode.commands.registerCommand('recentSwitcher.openCurrent', (item: unknown) => item instanceof ProjectItem ? openProject(item.project, false) : undefined),
+    vscode.commands.registerCommand('recentSwitcher.openRecent', () => provider.afterOpen(openRecent)),
+    vscode.commands.registerCommand('recentSwitcher.open', (item: unknown) => item instanceof ProjectItem ? provider.afterOpen(() => openProject(item.project)) : undefined),
+    vscode.commands.registerCommand('recentSwitcher.openCurrent', (item: unknown) => item instanceof ProjectItem ? provider.afterOpen(() => openProject(item.project, false)) : undefined),
     vscode.window.onDidChangeWindowState(event => { if (event.focused) void sync(); if (event.focused && provider.visible) void provider.refresh(); }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => { void sync(); if (provider.visible) void provider.refresh(true); }),
   );

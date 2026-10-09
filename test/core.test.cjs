@@ -283,3 +283,53 @@ test('registry watcher reports opening and closing without a polling update', as
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('open completion refreshes removed native entries, including handled failures', async () => {
+  const { ProjectsView } = load('src/projectsView.ts');
+  for (const rejected of [false, true]) {
+    let history = [{ kind: 'folder', uri: Uri.from(uri('/a/missing')) }];
+    const tree = new ProjectsTree(async () => history);
+    const view = new ProjectsView(undefined, tree);
+    await tree.getChildren();
+    try {
+      const operation = view.afterOpen(async () => { history = []; if (rejected) throw new Error('open failed'); });
+      if (rejected) await assert.rejects(operation, /open failed/);
+      else await operation;
+      assert.equal((await tree.getChildren())[0].label, 'No recent projects yet');
+    } finally { view.dispose(); }
+  }
+});
+
+test('post-open refresh waits for stale in-flight history and then reads again', async () => {
+  let resolve;
+  let requests = 0;
+  const tree = new ProjectsTree(() => {
+    requests++;
+    return requests === 1 ? new Promise(done => { resolve = done; }) : Promise.resolve([]);
+  });
+  const first = tree.refresh();
+  const latest = tree.refreshLatest();
+  resolve([{ kind: 'folder', uri: Uri.from(uri('/a/missing')) }]);
+  await Promise.all([first, latest]);
+  assert.equal(requests, 2);
+  assert.equal((await tree.getChildren())[0].label, 'No recent projects yet');
+  tree.dispose();
+});
+
+test('post-open recheck catches deferred native removal without deleting valid entries', async () => {
+  const { ProjectsView } = load('src/projectsView.ts');
+  let history = [{ kind: 'folder', uri: Uri.from(uri('/a/missing')) }];
+  const tree = new ProjectsTree(async () => history);
+  const view = new ProjectsView(undefined, tree);
+  let timeout;
+  try {
+    await view.afterOpen(async () => {});
+    assert.equal((await tree.getChildren())[0].label, 'missing');
+    const changed = new Promise(resolve => tree.onDidChangeTreeData(resolve));
+    history = [];
+    await Promise.race([changed, new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error('Deferred refresh did not occur')), 1500);
+    })]);
+    assert.equal((await tree.getChildren())[0].label, 'No recent projects yet');
+  } finally { clearTimeout(timeout); view.dispose(); }
+});

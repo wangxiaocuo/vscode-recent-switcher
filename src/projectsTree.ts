@@ -48,6 +48,12 @@ export class ProjectsTree implements vscode.TreeDataProvider<vscode.TreeItem>, v
     return this.items;
   }
 
+  async refreshLatest(): Promise<void> {
+    // A pre-existing request may have captured history before the open attempt.
+    if (this.pending) await this.pending;
+    await this.refresh(true);
+  }
+
   refresh(force = false): Promise<void> {
     if (this.disposed) return Promise.resolve();
     if (this.pending) return this.pending;

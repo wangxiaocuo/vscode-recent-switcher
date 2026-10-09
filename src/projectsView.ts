@@ -9,6 +9,8 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
   private readonly subscriptions: vscode.Disposable[] = [];
   private projects: ProjectItem[] = [];
   private revision = 0;
+  private disposed = false;
+  private readonly rechecks = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(private readonly extensionUri: vscode.Uri, private readonly model = new ProjectsTree()) {
     this.subscriptions.push(model.onDidChangeTreeData(() => { void this.render(); }));
@@ -16,6 +18,23 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
   setOpenProjects(opened: ReadonlySet<string>): Promise<void> { return this.model.setOpenProjects(opened); }
   get visible(): boolean { return this.view?.visible ?? false; }
   refresh(force = false): Promise<void> { return this.model.refresh(force); }
+
+  async afterOpen(action: () => Promise<void>): Promise<void> {
+    try { await action(); }
+    finally {
+      if (!this.disposed) {
+        await this.model.refreshLatest();
+        // Native dialogs/history updates may finish after the command resolves.
+        for (const delay of this.disposed ? [] : [250, 1000, 3000]) {
+          const timer = setTimeout(() => {
+            this.rechecks.delete(timer);
+            if (!this.disposed) void this.model.refreshLatest();
+          }, delay);
+          this.rechecks.add(timer);
+        }
+      }
+    }
+  }
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
@@ -32,10 +51,10 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
         if (!message || typeof message !== 'object') return;
         const data = message as Record<string, unknown>;
         if (data.type === 'ready') { void this.render(); return; }
-        if (data.type === 'recent') { void openRecent(); return; }
+        if (data.type === 'recent') { void this.afterOpen(openRecent); return; }
         if (data.type !== 'open' || data.revision !== this.revision || !Number.isInteger(data.index)) return;
         const item = this.projects[data.index as number];
-        if (item) void openProject(item.project);
+        if (item) void this.afterOpen(() => openProject(item.project));
       }),
       view.onDidChangeVisibility(() => { if (view.visible) void this.refresh(); }),
       view.onDidDispose(() => { if (this.view === view) this.view = undefined; }),
@@ -56,5 +75,5 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
       status: this.projects.length ? undefined : { label: items[0]?.label, tooltip: items[0]?.tooltip },
     });
   }
-  dispose(): void { this.model.dispose(); this.subscriptions.forEach(subscription => subscription.dispose()); }
+  dispose(): void { this.disposed = true; this.rechecks.forEach(clearTimeout); this.rechecks.clear(); this.model.dispose(); this.subscriptions.forEach(subscription => subscription.dispose()); }
 }
