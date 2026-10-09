@@ -39,3 +39,15 @@ export function projectInitials(name: string): string {
   return (words.length > 1 ? (Array.from(first)[0] ?? '') + (Array.from(last)[0] ?? '')
     : Array.from(first).slice(0, 2).join('')).toLocaleUpperCase();
 }
+
+export function projectKey(project: RecentProject): string {
+  return JSON.stringify([project.kind, project.uri.toString(), project.remoteAuthority ||
+    (project.uri.scheme === 'vscode-remote' ? project.uri.authority : '')]);
+}
+
+export function currentProject(): RecentProject | undefined {
+  const workspace = vscode.workspace.workspaceFile;
+  const uri = workspace ?? vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!uri) return undefined;
+  return { kind: workspace ? 'workspace' : 'folder', uri };
+}

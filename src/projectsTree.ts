@@ -1,18 +1,20 @@
 import * as vscode from 'vscode';
-import { canOpenDirectly, projectName, projectPath, type RecentProject } from './project';
+import { canOpenDirectly, projectKey, projectName, projectPath, type RecentProject } from './project';
 import { loadRecentProjects } from './recentProjects';
 
 export class ProjectItem extends vscode.TreeItem {
   readonly current: boolean;
-  constructor(readonly project: RecentProject) {
+  readonly state: 'current' | 'open' | 'closed';
+  constructor(readonly project: RecentProject, opened: ReadonlySet<string> = new Set()) {
     super(projectName(project), vscode.TreeItemCollapsibleState.None);
     const currentUri = vscode.workspace.workspaceFile ?? vscode.workspace.workspaceFolders?.[0]?.uri;
     const current = currentUri?.toString() === project.uri.toString()
       && (!project.remoteAuthority || project.remoteAuthority === currentUri?.authority);
     this.current = current;
+    this.state = current ? 'current' : opened.has(projectKey(project)) ? 'open' : 'closed';
     const direct = canOpenDirectly(project);
     this.description = `${projectPath(project, true)}${current ? ' • Current' : ''}${direct ? '' : ' • Open Recent'}`;
-    this.tooltip = `${project.kind === 'folder' ? 'Folder' : 'Workspace'}${current ? ' (current)' : ''}\n${projectPath(project)}${project.remoteAuthority ? `\nRemote: ${project.remoteAuthority}` : ''}${direct ? '' : '\nOpen through VS Code Open Recent'}`;
+    this.tooltip = `${project.kind === 'folder' ? 'Folder' : 'Workspace'}${current ? ' (current window)' : this.state === 'open' ? ' (open in another window)' : ''}\n${projectPath(project)}${project.remoteAuthority ? `\nRemote: ${project.remoteAuthority}` : ''}${direct ? '' : '\nOpen through VS Code Open Recent'}`;
     this.iconPath = new vscode.ThemeIcon(project.kind === 'folder' ? 'folder' : 'root-folder');
     this.contextValue = direct ? 'recentProject' : 'recentProjectFallback';
     this.command = { command: 'recentSwitcher.open', title: 'Open Project', arguments: [this] };
@@ -27,8 +29,17 @@ export class ProjectsTree implements vscode.TreeDataProvider<vscode.TreeItem>, v
   private lastRefresh = 0;
   private fingerprint = '';
   private disposed = false;
+  private opened: ReadonlySet<string> = new Set();
 
   constructor(private readonly load: () => Promise<RecentProject[]> = loadRecentProjects) {}
+
+  async setOpenProjects(opened: ReadonlySet<string>): Promise<void> {
+    if (opened.size === this.opened.size && [...opened].every(key => this.opened.has(key))) return;
+    this.opened = new Set(opened);
+    // Do not lose a presence change while a history refresh is in flight.
+    if (this.pending) await this.pending;
+    await this.refresh(true);
+  }
 
   getTreeItem(item: vscode.TreeItem): vscode.TreeItem { return item; }
   async getChildren(parent?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
@@ -49,7 +60,8 @@ export class ProjectsTree implements vscode.TreeDataProvider<vscode.TreeItem>, v
     let items: vscode.TreeItem[];
     try {
       const projects = await this.load();
-      items = projects.length ? projects.map(project => new ProjectItem(project)).sort((a, b) => Number(b.current) - Number(a.current))
+      items = projects.length ? projects.map(project => new ProjectItem(project, this.opened)).sort((a, b) =>
+          ({ current: 0, open: 1, closed: 2 }[a.state] - { current: 0, open: 1, closed: 2 }[b.state]))
         : [this.status('No recent projects yet', 'Open a folder or workspace in VS Code to get started.', 'info')];
     } catch {
       items = [this.status('Recent history unavailable — Open Recent',

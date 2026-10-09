@@ -6,7 +6,7 @@ body { margin: 0; padding: 6px 8px; color: var(--vscode-foreground); font-family
 .project:hover, .project:focus-within { background: var(--vscode-list-hoverBackground); }
 button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 .avatar { display: flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border-radius: 7px; background: color-mix(in srgb, var(--vscode-foreground) 16%, var(--vscode-editor-background)); color: var(--vscode-foreground); font-size: 12px; font-weight: 600; letter-spacing: .3px; border: 1px solid var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-editor-background))); }
-.project:not(.current):hover .avatar, .project:not(.current):focus-within .avatar { background: color-mix(in srgb, var(--vscode-foreground) 24%, var(--vscode-editor-background)); border-color: var(--vscode-contrastActiveBorder, var(--vscode-foreground)); }
+.project.closed:hover .avatar, .project.closed:focus-within .avatar { background: color-mix(in srgb, var(--vscode-foreground) 24%, var(--vscode-editor-background)); border-color: var(--vscode-contrastActiveBorder, var(--vscode-foreground)); }
 .current .avatar { background: var(--vscode-textLink-foreground); color: var(--vscode-editor-background); border-color: var(--vscode-contrastBorder, var(--vscode-textLink-foreground)); }
 .copy { flex: 1; min-width: 0; }
 .name, .path { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -15,3 +15,6 @@ button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-off
 .check { flex: 0 0 16px; width: 16px; height: 16px; color: var(--vscode-textLink-foreground); }
 .status { padding: 12px 8px; line-height: 1.6; color: var(--vscode-descriptionForeground); }
 .status button { display: block; margin-top: 10px; border: 0; padding: 6px 10px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); cursor: pointer; font: inherit; }
+
+.project.is-open .avatar { position: relative; background: color-mix(in srgb, var(--vscode-textLink-foreground) 16%, var(--vscode-editor-background)); color: var(--vscode-textLink-foreground); border-color: var(--vscode-textLink-foreground); }
+.project.is-open .avatar::after { content: ''; position: absolute; width: 6px; height: 6px; right: -3px; bottom: -3px; border-radius: 50%; background: var(--vscode-textLink-foreground); border: 2px solid var(--vscode-sideBar-background); box-sizing: content-box; }

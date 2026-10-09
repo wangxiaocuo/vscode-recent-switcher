@@ -13,11 +13,11 @@ window.addEventListener('message', ({ data }) => {
   const focusKey = focused?.dataset.key;
   root.replaceChildren();
   data.projects.forEach((project, index) => {
-    const row = element('div', `project${project.current ? ' current' : ''}`);
+    const row = element('div', `project ${project.state === 'open' ? 'is-open' : project.current ? 'current' : 'closed'}`);
     const open = element('button', 'open');
     open.dataset.key = project.path;
     open.title = `${project.tooltip}\nOpen Project`;
-    open.setAttribute('aria-label', `${project.name}${project.current ? ', current project' : ''}, ${project.path}. Open project`);
+    open.setAttribute('aria-label', `${project.name}${project.current ? ', current project' : project.state === 'open' ? ', open in another window' : ', not detected in an open window'}, ${project.path}. Open project`);
     if (project.current) open.setAttribute('aria-current', 'true');
     const avatar = element('span', 'avatar', project.initials);
     avatar.setAttribute('aria-hidden', 'true');

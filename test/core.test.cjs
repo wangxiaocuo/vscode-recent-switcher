@@ -27,7 +27,7 @@ const vscode = {
 function load(file) {
   const code = buildSync({ entryPoints: [file], bundle: true, platform: 'node', format: 'cjs', external: ['vscode'], write: false }).outputFiles[0].text;
   const module = { exports: {} };
-  vm.runInNewContext(code, { module, exports: module.exports, require: id => id === 'vscode' ? vscode : require(id), setTimeout, clearTimeout, console });
+  vm.runInNewContext(code, { module, exports: module.exports, require: id => id === 'vscode' ? vscode : require(id), setTimeout, clearTimeout, console, process });
   return module.exports;
 }
 const { parseRecentProjects } = load('src/recentProjects.ts');
@@ -180,4 +180,106 @@ test('default opening reuses empty windows but preserves existing folders and em
       assert.equal(calls[0][2].forceLocalWindow, true);
     }
   } finally { vscode.workspace.workspaceFolders = undefined; vscode.workspace.workspaceFile = undefined; }
+});
+
+test('groups current, open and closed projects with stable history order and reorders on close', async () => {
+  const { projectKey } = load('src/project.ts');
+  const projects = ['closed-new', 'open-new', 'current', 'open-old', 'closed-old'].map(name => ({ kind: 'folder', uri: Uri.from(uri('/a/' + name)) }));
+  vscode.workspace.workspaceFolders = [{ uri: projects[2].uri }];
+  const tree = new ProjectsTree(async () => projects);
+  try {
+    await tree.setOpenProjects(new Set([projectKey(projects[1]), projectKey(projects[3])]));
+    let items = await tree.getChildren();
+    assert.equal(items.map(item => item.label).join(','), 'current,open-new,open-old,closed-new,closed-old');
+    assert.equal(items.map(item => item.state).join(','), 'current,open,open,closed,closed');
+    await tree.setOpenProjects(new Set([projectKey(projects[3])]));
+    items = await tree.getChildren();
+    assert.equal(items.map(item => item.label).join(','), 'current,open-old,closed-new,open-new,closed-old');
+  } finally { tree.dispose(); vscode.workspace.workspaceFolders = undefined; }
+});
+
+test('presence keys distinguish remote authorities and workspace identities', () => {
+  const { projectKey } = load('src/project.ts');
+  const local = { kind: 'workspace', uri: Uri.from(uri('/a/team.code-workspace')) };
+  assert.notEqual(projectKey(local), projectKey({ ...local, remoteAuthority: 'ssh-remote+host' }));
+  const remote = { kind: 'folder', uri: Uri.from({ ...uri('/a/team', 'vscode-remote'), authority: 'ssh-remote+host' }) };
+  assert.equal(projectKey(remote), projectKey({ ...remote, remoteAuthority: 'ssh-remote+host' }));
+});
+
+test('window registry shares concurrent sessions and keeps duplicate projects until last close', async () => {
+  const { mkdtemp, readdir, rm } = require('node:fs/promises');
+  const { join } = require('node:path');
+  const { tmpdir } = require('node:os');
+  const { OpenProjectsRegistry } = load('src/openProjects.ts');
+  const directory = await mkdtemp(join(tmpdir(), 'recent-presence-'));
+  const first = new OpenProjectsRegistry(directory);
+  const second = new OpenProjectsRegistry(directory);
+  const observer = new OpenProjectsRegistry(directory);
+  try {
+    await Promise.all([first.update('same-project'), second.update('same-project')]);
+    assert.equal((await observer.update(null)).has('same-project'), true);
+    await first.dispose();
+    assert.equal((await observer.update(null)).has('same-project'), true);
+    await second.dispose();
+    assert.equal((await observer.update(null)).size, 0);
+    await observer.dispose();
+    assert.equal((await readdir(directory)).length, 0);
+  } finally { await Promise.all([first.dispose(), second.dispose(), observer.dispose()]); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('registry ignores dead, expired and malformed sessions and handles dispose during writes', async () => {
+  const { mkdtemp, writeFile, rm, readdir } = require('node:fs/promises');
+  const { join } = require('node:path');
+  const { tmpdir } = require('node:os');
+  const { OpenProjectsRegistry } = load('src/openProjects.ts');
+  const directory = await mkdtemp(join(tmpdir(), 'recent-presence-'));
+  let now = 100000;
+  const live = new Set([101, 102]);
+  const first = new OpenProjectsRegistry(directory, pid => live.has(pid), () => now, 101);
+  const observer = new OpenProjectsRegistry(directory, pid => live.has(pid), () => now, 102);
+  try {
+    await first.update('project');
+    await writeFile(join(directory, 'broken.json'), '{');
+    assert.equal((await observer.update(null)).has('project'), true);
+    now += 31000;
+    assert.equal((await observer.update(null)).has('project'), false);
+    await first.update('project');
+    live.delete(101);
+    assert.equal((await observer.update(null)).has('project'), false);
+    const pending = first.update('closing');
+    await first.dispose();
+    await pending;
+    await observer.dispose();
+    assert.equal((await readdir(directory)).join(','), 'broken.json');
+  } finally { await Promise.all([first.dispose(), observer.dispose()]); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('registry watcher reports opening and closing without a polling update', async () => {
+  const { mkdtemp, rm } = require('node:fs/promises');
+  const { join } = require('node:path');
+  const { tmpdir } = require('node:os');
+  const { OpenProjectsRegistry } = load('src/openProjects.ts');
+  const directory = await mkdtemp(join(tmpdir(), 'recent-watch-'));
+  const observer = new OpenProjectsRegistry(directory);
+  const writer = new OpenProjectsRegistry(directory);
+  let resolveOpen, resolveClose;
+  const opened = new Promise(resolve => { resolveOpen = resolve; });
+  const closed = new Promise(resolve => { resolveClose = resolve; });
+  let sawOpen = false;
+  let timeout;
+  const deadline = new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('No file notification received')), 3000); });
+  try {
+    await observer.watch(async keys => {
+      if (keys.has('new-project')) { sawOpen = true; resolveOpen(); }
+      else if (sawOpen) resolveClose();
+    });
+    await writer.update('new-project');
+    await Promise.race([opened, deadline]);
+    await writer.dispose();
+    await Promise.race([closed, deadline]);
+  } finally {
+    clearTimeout(timeout);
+    await Promise.all([observer.dispose(), writer.dispose()]);
+    await rm(directory, { recursive: true, force: true });
+  }
 });

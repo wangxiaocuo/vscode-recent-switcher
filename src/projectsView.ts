@@ -13,6 +13,7 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
   constructor(private readonly extensionUri: vscode.Uri, private readonly model = new ProjectsTree()) {
     this.subscriptions.push(model.onDidChangeTreeData(() => { void this.render(); }));
   }
+  setOpenProjects(opened: ReadonlySet<string>): Promise<void> { return this.model.setOpenProjects(opened); }
   get visible(): boolean { return this.view?.visible ?? false; }
   refresh(force = false): Promise<void> { return this.model.refresh(force); }
 
@@ -49,7 +50,7 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
       type: 'projects', revision: ++this.revision,
       projects: this.projects.map(item => ({
         name: projectName(item.project), path: projectPath(item.project, true),
-        initials: projectInitials(projectName(item.project)), current: item.current,
+        initials: projectInitials(projectName(item.project)), current: item.current, state: item.state,
         tooltip: item.tooltip,
       })),
       status: this.projects.length ? undefined : { label: items[0]?.label, tooltip: items[0]?.tooltip },
