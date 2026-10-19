@@ -8,7 +8,7 @@ Recent Switcher lists your recently opened VS Code folders and workspaces in the
 
 ```text
 ┌──────────────────────────────────────────────┐
-│ RECENT PROJECTS                  History  ↻  │
+│ RECENT SWITCHER                  History  ↻  │
 ├──────────────────────────────────────────────┤
 │ [RS]  recent-switcher                     ✓  │
 │       ~/projects/recent-switcher             │
@@ -28,12 +28,13 @@ Illustrative layout with sample projects. `✓` marks the current project; `●`
 
 ## Features
 
-- A Recent Switcher Activity Bar entry with a Recent Projects list.
+- A Recent Switcher Activity Bar entry and sidebar title.
 - The current project appears first with a theme-colored checkmark, followed by projects detected in other windows, then projects not detected as open. Each group keeps native recent-history order. Individual files are excluded.
 - Two-line project names and paths, initial avatars, and full-path tooltips. Current-project avatars use a solid accent; other open projects use an accent outline and dot; remaining projects use neutral colors. Local home paths are abbreviated to `~`.
 - Single-click a local folder or saved `.code-workspace` to open it in the current window when empty, or a new window when a folder or workspace is already open.
 - Refresh on first display, when the view becomes visible, and when its visible window regains focus. After an open attempt, the list reloads native history and briefly rechecks for delayed changes, including removal of missing paths. While visible, the panel also checks history every five seconds. A toolbar refresh button is available.
 - Opening or closing a window updates project status through file notifications, with a periodic heartbeat as a fallback. A new window appears as open once its extension instance registers.
+- Remove an individual recent entry with the × button shown on hover or keyboard focus. The button is only available for projects not detected as open; current and other open projects do not show it. This updates VS Code’s native recent history without deleting files or closing windows. Reopening a project can add it back.
 - Distinct empty and failure states, with a native Open Recent fallback.
 
 ## Install and use
@@ -113,7 +114,7 @@ Reading history uses the non-public `_workbench.getRecentlyOpened` command. It i
 }
 ```
 
-Only `workspaces` is normalized. URI instances and URI component objects are accepted; unknown or malformed records display a history-unavailable message. No independent history is stored, and native history is never rewritten by the extension.
+Only `workspaces` is normalized. URI instances and URI component objects are accepted; unknown or malformed records display a history-unavailable message. No independent history is stored. Explicit removal uses `vscode.removeFromRecentlyOpened` with the original URI and then reloads native history. VS Code removes records by URI, so records sharing that URI follow its native removal behavior.
 
 Local folders and saved workspaces use the documented `vscode.openFolder` command with explicit `forceNewWindow` / `forceReuseWindow` and `forceLocalWindow` options. The original URI is used, never the displayed name. Remote URIs are never converted to local paths.
 

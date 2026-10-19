@@ -333,3 +333,68 @@ test('post-open recheck catches deferred native removal without deleting valid e
     assert.equal((await tree.getChildren())[0].label, 'No recent projects yet');
   } finally { clearTimeout(timeout); view.dispose(); }
 });
+
+test('sidebar removal validates messages, preserves other records and recovers from command failure', async () => {
+  const originalCommand = vscode.commands.executeCommand;
+  const originalError = vscode.window.showErrorMessage;
+  const originalJoinPath = Uri.joinPath;
+  let history = ['/a/first', '/a/second'].map(path => ({ folderUri: uri(path) }));
+  let receive, latest, onRender;
+  let fail = false;
+  const removed = [], errors = [];
+  Uri.joinPath = (base, ...parts) => Uri.from({ scheme: base.scheme, path: [base.path, ...parts].join('/') });
+  vscode.commands.executeCommand = async (command, target) => {
+    if (command === '_workbench.getRecentlyOpened') return { workspaces: history, files: [] };
+    assert.equal(command, 'vscode.removeFromRecentlyOpened');
+    removed.push(target.path);
+    if (fail) throw new Error('unavailable');
+    history = history.filter(entry => entry.folderUri.path !== target.path);
+  };
+  vscode.window.showErrorMessage = async message => { errors.push(message); };
+  const { ProjectsView } = load('src/projectsView.ts');
+  const provider = new ProjectsView(Uri.from(uri('/extension')));
+  const disposable = () => ({ dispose() {} });
+  const renderAfter = action => new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { onRender = undefined; reject(new Error('No sidebar update')); }, 1000);
+    onRender = () => { clearTimeout(timeout); onRender = undefined; resolve(); };
+    action();
+  });
+  try {
+    provider.resolveWebviewView({
+      webview: {
+        asWebviewUri: value => value.toString(), cspSource: 'test:',
+        onDidReceiveMessage: listener => { receive = listener; return disposable(); },
+        postMessage: async message => { latest = message; onRender?.(); return true; },
+      },
+      onDidChangeVisibility: disposable, onDidDispose: disposable,
+    });
+    await renderAfter(() => receive({ type: 'ready' }));
+    // Drain the initial render triggered by the model's first refresh.
+    await new Promise(resolve => setImmediate(resolve));
+    for (const message of [
+      { revision: latest.revision - 1, index: 0 },
+      { revision: latest.revision, index: -1 },
+      { revision: latest.revision, index: 10 },
+      { revision: latest.revision, index: 0.5 },
+    ]) receive({ type: 'remove', ...message });
+    assert.deepEqual(removed, []);
+    await renderAfter(() => receive({ type: 'remove', revision: latest.revision, index: 0 }));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(removed, ['/a/first']);
+    assert.equal(latest.projects.length, 1);
+    assert.equal(latest.projects[0].name, 'second');
+    fail = true;
+    await renderAfter(() => receive({ type: 'remove', revision: latest.revision, index: 0 }));
+    assert.equal(errors.length, 1);
+    assert.equal(latest.projects[0].name, 'second');
+    fail = false;
+    await renderAfter(() => receive({ type: 'remove', revision: latest.revision, index: 0 }));
+    assert.equal(latest.projects.length, 0);
+    assert.equal(latest.status.label, 'No recent projects yet');
+  } finally {
+    provider.dispose();
+    vscode.commands.executeCommand = originalCommand;
+    vscode.window.showErrorMessage = originalError;
+    Uri.joinPath = originalJoinPath;
+  }
+});

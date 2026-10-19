@@ -60,3 +60,7 @@ export async function loadRecentProjects(): Promise<RecentProject[]> {
   const raw: unknown = await vscode.commands.executeCommand('_workbench.getRecentlyOpened');
   return parseRecentProjects(raw);
 }
+
+export async function removeRecentProject(project: RecentProject): Promise<void> {
+  await vscode.commands.executeCommand('vscode.removeFromRecentlyOpened', project.uri);
+}

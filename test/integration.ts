@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { loadRecentProjects } from '../src/recentProjects';
+import { stat } from 'node:fs/promises';
+import { loadRecentProjects, removeRecentProject } from '../src/recentProjects';
 import { ProjectsTree, ProjectItem } from '../src/projectsTree';
 
 export async function run(): Promise<void> {
@@ -9,7 +10,7 @@ export async function run(): Promise<void> {
   assert.ok(root);
   const folder = vscode.Uri.file(join(root, 'folder'));
   const workspace = vscode.Uri.file(join(root, 'sample.code-workspace'));
-  // Test-only seeding via VS Code itself; production never writes history.
+  // Seed only the isolated test profile via VS Code itself.
   await vscode.commands.executeCommand('_workbench.addToRecentlyOpened', { uri: folder, type: 'folder' });
   await vscode.commands.executeCommand('_workbench.addToRecentlyOpened', { uri: workspace, type: 'workspace' });
   const raw: unknown = await vscode.commands.executeCommand('_workbench.getRecentlyOpened');
@@ -26,6 +27,16 @@ export async function run(): Promise<void> {
   const tree = new ProjectsTree();
   const items = await tree.getChildren();
   assert.ok(items.some(i => i instanceof ProjectItem && i.project.uri.toString() === workspace.toString()));
+  await removeRecentProject({ kind: 'folder', uri: folder });
+  await tree.refreshLatest();
+  const remaining = await loadRecentProjects();
+  assert.ok(!remaining.some(p => p.uri.toString() === folder.toString()));
+  assert.ok(remaining.some(p => p.uri.toString() === workspace.toString()));
+  assert.ok(!(await tree.getChildren()).some(i => i instanceof ProjectItem && i.project.uri.toString() === folder.toString()));
+  assert.ok((await stat(folder.fsPath)).isDirectory());
+  await removeRecentProject({ kind: 'workspace', uri: workspace });
+  assert.ok(!(await loadRecentProjects()).some(p => p.uri.toString() === workspace.toString()));
+  assert.ok((await stat(workspace.fsPath)).isFile());
   tree.dispose();
-  console.log(`PASS: VS Code ${vscode.version}; native folder/workspace history, activation, view focus and refresh (${projects.length} projects).`);
+  console.log(`PASS: VS Code ${vscode.version}; native folder/workspace history, activation, view focus, refresh and individual history removal without deleting files (${projects.length} projects).`);
 }

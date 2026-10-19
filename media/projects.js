@@ -11,11 +11,12 @@ window.addEventListener('message', ({ data }) => {
   if (data.type !== 'projects') return;
   const focused = document.activeElement;
   const focusKey = focused?.dataset.key;
+  const focusIndex = Array.from(root.children).indexOf(focused?.closest('.project'));
   root.replaceChildren();
   data.projects.forEach((project, index) => {
     const row = element('div', `project ${project.state === 'open' ? 'is-open' : project.current ? 'current' : 'closed'}`);
     const open = element('button', 'open');
-    open.dataset.key = project.path;
+    open.dataset.key = `open:${project.key}`;
     open.title = `${project.tooltip}\nOpen Project`;
     open.setAttribute('aria-label', `${project.name}${project.current ? ', current project' : project.state === 'open' ? ', open in another window' : ', not detected in an open window'}, ${project.path}. Open project`);
     if (project.current) open.setAttribute('aria-current', 'true');
@@ -39,6 +40,17 @@ window.addEventListener('message', ({ data }) => {
     }
     open.addEventListener('click', () => vscode.postMessage({ type: 'open', revision: data.revision, index }));
     row.append(open);
+    if (project.state === 'closed') {
+      const remove = element('button', 'remove', '×');
+      remove.dataset.key = `remove:${project.key}`;
+      remove.title = 'Remove from Recently Opened';
+      remove.setAttribute('aria-label', `Remove ${project.name} from recently opened`);
+      remove.addEventListener('click', () => {
+        remove.disabled = true;
+        vscode.postMessage({ type: 'remove', revision: data.revision, index });
+      });
+      row.append(remove);
+    }
     root.append(row);
   });
   if (!data.projects.length) {
@@ -49,7 +61,11 @@ window.addEventListener('message', ({ data }) => {
     status.append(recent);
     root.append(status);
   }
-  if (focusKey) Array.from(root.querySelectorAll('button')).find(button => button.dataset.key === focusKey)?.focus();
+  if (focusKey) {
+    const previous = Array.from(root.querySelectorAll('button')).find(button => button.dataset.key === focusKey);
+    const neighbor = root.children[Math.min(focusIndex, root.children.length - 1)];
+    (previous ?? neighbor?.querySelector(focused.classList.contains('remove') ? '.remove' : '.open') ?? neighbor?.querySelector('.open') ?? root.querySelector('button'))?.focus();
+  }
 });
 root.addEventListener('keydown', event => {
   const buttons = Array.from(root.querySelectorAll('.open'));

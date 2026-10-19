@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'node:crypto';
 import { ProjectItem, ProjectsTree } from './projectsTree';
-import { projectInitials, projectName, projectPath } from './project';
+import { projectInitials, projectKey, projectName, projectPath, type RecentProject } from './project';
 import { openProject, openRecent } from './openProject';
+import { removeRecentProject } from './recentProjects';
 
 export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposable {
   private view?: vscode.WebviewView;
@@ -18,6 +19,20 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
   setOpenProjects(opened: ReadonlySet<string>): Promise<void> { return this.model.setOpenProjects(opened); }
   get visible(): boolean { return this.view?.visible ?? false; }
   refresh(force = false): Promise<void> { return this.model.refresh(force); }
+
+  private async remove(project: RecentProject): Promise<void> {
+    try {
+      await removeRecentProject(project);
+    } catch {
+      void vscode.window.showErrorMessage('Could not remove this project from recent history. Please try again or use File > Open Recent.');
+    } finally {
+      if (!this.disposed) {
+        await this.model.refreshLatest();
+        // Also restore the button if removal failed and history did not change.
+        await this.render();
+      }
+    }
+  }
 
   async afterOpen(action: () => Promise<void>): Promise<void> {
     try { await action(); }
@@ -52,9 +67,14 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
         const data = message as Record<string, unknown>;
         if (data.type === 'ready') { void this.render(); return; }
         if (data.type === 'recent') { void this.afterOpen(openRecent); return; }
-        if (data.type !== 'open' || data.revision !== this.revision || !Number.isInteger(data.index)) return;
+        if ((data.type !== 'open' && data.type !== 'remove') || data.revision !== this.revision || !Number.isInteger(data.index)) return;
         const item = this.projects[data.index as number];
-        if (item) void this.afterOpen(() => openProject(item.project));
+        if (!item) return;
+        if (data.type === 'remove') {
+          if (item.state === 'closed') void this.remove(item.project);
+          return;
+        }
+        void this.afterOpen(() => openProject(item.project));
       }),
       view.onDidChangeVisibility(() => { if (view.visible) void this.refresh(); }),
       view.onDidDispose(() => { if (this.view === view) this.view = undefined; }),
@@ -68,6 +88,7 @@ export class ProjectsView implements vscode.WebviewViewProvider, vscode.Disposab
     await this.view.webview.postMessage({
       type: 'projects', revision: ++this.revision,
       projects: this.projects.map(item => ({
+        key: projectKey(item.project),
         name: projectName(item.project), path: projectPath(item.project, true),
         initials: projectInitials(projectName(item.project)), current: item.current, state: item.state,
         tooltip: item.tooltip,

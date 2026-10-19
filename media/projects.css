@@ -1,8 +1,13 @@
 :root { color-scheme: light dark; }
 body { margin: 0; padding: 6px 8px; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }
 * { box-sizing: border-box; }
-.project { position: relative; margin: 2px 0; border-radius: 5px; }
-.open { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 62px; padding: 10px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.project { position: relative; display: flex; align-items: center; margin: 2px 0; border-radius: 5px; }
+.open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 62px; padding: 10px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.remove { flex: 0 0 24px; height: 24px; margin-right: 5px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--vscode-descriptionForeground); font-size: 20px; line-height: 24px; cursor: pointer; opacity: 0; }
+.project:hover .remove, .project:focus-within .remove { opacity: 1; }
+.remove:hover { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
+.remove:disabled { cursor: default; opacity: .5; }
+@media (hover: none) { .remove { opacity: 1; } }
 .project:hover, .project:focus-within { background: var(--vscode-list-hoverBackground); }
 button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
 .avatar { display: flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border-radius: 7px; background: color-mix(in srgb, var(--vscode-foreground) 16%, var(--vscode-editor-background)); color: var(--vscode-foreground); font-size: 12px; font-weight: 600; letter-spacing: .3px; border: 1px solid var(--vscode-contrastBorder, color-mix(in srgb, var(--vscode-foreground) 32%, var(--vscode-editor-background))); }
